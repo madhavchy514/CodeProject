@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const env = require('dotenv');
+const crypto = require('crypto');
 const express = require('express');
 const mime = require('mime-types');
-const crypto = require('crypto');
-const env = require('dotenv').config({ quiet: true });
 
 class Helper {
   static resolve(reqPath, rootDir) {
@@ -59,30 +59,31 @@ class Helper {
     return base64Regex.test(str);
   }
 
-  static cachePath(file) {
+  static cachePath(file, cacheDir) {
     const h = crypto.createHash('md5').update(file).digest('hex');
     const s1 = h[0] + (h[1]||'');
     const s2 = (h[2]||'') + (h[3]||'');
-    return path.join(cache, s1, s2, h);
+    return path.join(cacheDir, s1, s2, h);
   }
 }
 
-const port = process.env.PORT;
-const app = express();
-const public = path.resolve(process.env.PUBLIC);
-const root = path.resolve(process.env.ROOT);
-const cache = path.resolve(process.env.CACHE);
+env.config({ path: './.env', quiet: true });
 
-app.use(express.static(public));
-app.use('/cache', express.static(cache));
-app.use(express.json({ limit: '10mb' }));
+const APP = express();
+const PORT = process.env.PORT;
+const PUBLIC_DIR = path.resolve(process.env.PUBLIC);
+const ROOT_DIR = path.resolve(process.env.ROOT);
+const CACHE_DIR = path.resolve(process.env.CACHE);
 
-app.listen(port, () => {
-  console.log(`http://localhost:${port}`);
+APP.use(express.static(PUBLIC_DIR));
+APP.use('/cache', express.static(CACHE_DIR));
+APP.use(express.json());
+APP.listen(PORT, () => {
+  console.log(`http://localhost:${PORT}`);
 });
 
-app.get('/explore', async (req, res) => {
-  const dir = Helper.resolve(req.query.path, root);
+APP.get('/explore', async (req, res) => {
+  const dir = Helper.resolve(req.query.path, ROOT_DIR);
   if (!dir) return Helper.response(res, 'path invalid', false);
   const entries = await fs.promises.readdir(dir, { withFileTypes: true }).catch(() => null);
   if (!entries) return Helper.response(res, 'path not found', false);
@@ -95,12 +96,12 @@ app.get('/explore', async (req, res) => {
     if (!ok) return null;
     const stat = await fs.promises.stat(fullPath).catch(() => null);
     if (!stat) return null;
-    const relPath = path.relative(root, fullPath);
+    const relPath = path.relative(ROOT_DIR, fullPath);
     let thumb = null;
     if (stat.isFile()) {
-      const cachePath = Helper.cachePath(fullPath);
+      const cachePath = Helper.cachePath(fullPath, CACHE_DIR);
       const exist = await fs.promises.access(cachePath).then(() => true).catch(() => false);
-      if (exist) thumb = `/cache/${path.relative(cache, cachePath)}`;
+      if (exist) thumb = `/cache/${path.relative(CACHE_DIR, cachePath)}`;
     }
     return {
       path: relPath, type: type,
@@ -112,8 +113,8 @@ app.get('/explore', async (req, res) => {
   return Helper.response(res, result);
 });
 
-app.get('/media', async (req, res) => {
-  const media = Helper.resolve(req.query.path, root);
+APP.get('/media', async (req, res) => {
+  const media = Helper.resolve(req.query.path, ROOT_DIR);
   if (!media) return res.sendStatus(404);
   const stat = await fs.promises.stat(media).catch(() => null);
   if (!stat || !stat.isFile()) return res.sendStatus(404);
@@ -139,8 +140,8 @@ app.get('/media', async (req, res) => {
   stream.pipe(res);
 });
 
-app.get('/data', async (req, res) => {
-  const file = Helper.resolve(req.query.path, root);
+APP.get('/data', async (req, res) => {
+  const file = Helper.resolve(req.query.path, ROOT_DIR);
   if (!file) return Helper.response(res, 'invalid path', false);
   const stat = await fs.promises.stat(file).catch(() => null);
   if (!stat) return Helper.response(res, 'path not found', false);
@@ -161,13 +162,13 @@ app.get('/data', async (req, res) => {
   }
 });
 
-app.post('/thumb', async (req, res) => {
-  const file = Helper.resolve(req.body.path, root);
+APP.post('/thumb', async (req, res) => {
+  const file = Helper.resolve(req.body.path, ROOT_DIR);
   if (!file) return Helper.response(res, 'invalid path', false);
   const str = req.body.base64;
   if (!Helper.isBase64(str)) return Helper.response(res, 'invalid base64', false);
   const buffer = Buffer.from(str, 'base64');
-  const cachePath = Helper.cachePath(file);
+  const cachePath = Helper.cachePath(file, CACHE_DIR);
   try {
     await fs.promises.mkdir(path.dirname(cachePath), { recursive: true });
     const exist = await fs.promises.access(cachePath).then(() => true).catch(() => false);
