@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { padding:0; margin:0; box-sizing:border-box; }
+    body { background:#1a1a1a; }
+    canvas {
+      width: calc(100dvw - 20px);
+      height: calc(100dvh - 20px);
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      border: 1px solid #333;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="graph" width="8000" height="4000"></canvas>
+  <script src="graph.js"></script>
+  <script>
+    const canvas = document.getElementById('graph');
+
+    const sineConfig = {
+      amplitude: 100,
+      frequency: 0.5,
+      dataPoints: 1000,
+      decay: 0.0005,
+      speed: 0.06
+    };
+
+    let offset = 0;
+    let paused = false;
+
+    function generateSineWave(config, phase) {
+      const { amplitude, frequency, dataPoints, decay } = config;
+      const data = [];
+      for (let i = 0; i < dataPoints; i++) {
+        const x = (i / (dataPoints - 1)) * (Math.PI * 2 * frequency) + phase;
+        const y = amplitude * Math.sin(x) * Math.exp(-decay * i);
+        data.push(y + amplitude);
+      }
+      return data;
+    }
+
+    function animate() {
+      if (paused) return;
+      offset += sineConfig.speed;
+      const dataset = [{ data: generateSineWave(sineConfig, offset) }];
+      Graph.draw(canvas, dataset, sineConfig.amplitude * 2, {
+        grid: {
+          legendX: false,
+          legendY: false,
+        },
+        point: {
+          drawPoint: false,
+          dynamicPoint: false,
+          textFilter: (t) => t.toFixed(5),
+          drawText: false,
+        },
+        line: {
+          color: '#00ffcc',
+          width: 2
+        }
+      });
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        paused = !paused;
+      }
+    });
+
+    animate();
+  </script>
+</body>
+</html>

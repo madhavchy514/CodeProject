@@ -1,0 +1,50 @@
+* {
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  box-sizing: border-box;
+}
+body {
+  width: 100px;
+  padding: 10px;
+  background: #0b0b0b;
+  color: #00ff41;
+  font-family: Segoe UI, Tahoma, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#func {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+#func .btn {
+  letter-spacing: 2px;
+  padding: 5px;
+  background: transparent;
+  color: #00ff41;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 34px;
+  height: 34px;
+  transition: transform 0.15s;
+}
+#func .btn:hover {
+  transform: scale(120%);
+}
+#func .btn:active {
+  transform: scale(100%);
+}
+#func #do.remove {
+  color: #ff3131;
+}
+#func .btn svg {
+  width: 24px;
+  height: 24px;
+}

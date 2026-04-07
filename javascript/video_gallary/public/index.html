@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <link rel='icon' href='favicon.ico' type='image/x-icon'>
+  <link rel='stylesheet' href='style.css'>
+  <link rel='shortcut icon' href='favicon.ico' type='image/x-icon'>
+  <title>gallery</title>
+</head>
+<body> 
+  <div id='topbar'>
+    <button id='back' class='button'>◀</button>
+    <span id='path'></span>
+    <label class='switch'> 
+      <input id='thumb' type='checkbox'>
+      <span class='slider'></span>
+    </label>
+  </div>
+  <div id='gallery'></div>
+  <div id='viewer' class='hidden'>
+    <div id='base'></div>
+    <button id='close' class='button'>X</button>
+    <button id='prev' class='button'>◀</button>
+    <div id='media'></div>
+    <button id='next' class='button'>▶</button>
+  </div>
+  <script src='video.js'></script>
+  <script src='script.js'></script>
+</body>
+</html>

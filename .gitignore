@@ -1,0 +1,17 @@
+node_modules/
+venv/
+lib/
+img/
+cache/
+video/
+*.exe
+*.o
+*.out
+*.obj
+node_modules/
+venv/
+lib/
+*.db
+*.wal
+.vscode/
+.DS_Store

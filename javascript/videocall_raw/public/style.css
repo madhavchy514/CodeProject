@@ -1,0 +1,122 @@
+* {
+  padding: 0;
+  margin: 0;
+  outline: none;
+  border: none;
+  box-sizing: border-box;
+  font-family: monospace;
+}
+body {
+  min-height: 100dvh;
+  background: #333333;
+  color: #fff;
+}
+.hidden {
+  display: none !important;
+}
+
+
+#start {
+  width: 100dvw;
+  height: 100dvh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10000000;
+  font-size: 100px;
+  cursor: pointer;
+  background: #0d0d16;
+  color: #c4c4c4;
+  transition: 0.2s;
+}
+#start:hover {
+  background-color: #333;
+}
+
+
+#alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 500px;
+  background: #ff0000;
+  border-radius: 5px;
+  color: #fff;
+  text-overflow: ellipsis;
+  word-wrap: nowrap;
+  padding: 10px;
+  text-align: center;
+  font-size: 13px;
+  z-index: 1000
+}
+
+
+#control {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 500px;
+  background: #22222255;
+  border: 1px solid #555;
+  padding: 10px;
+  border-radius: 15px;
+  font-size: 15px;
+}
+#control button {
+  padding: 7px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: #fff;
+  transition: 0.2s;
+}
+#control button:hover {
+  background: #ccc;
+}
+#control button img {
+  width: 30px;
+  height: 30px;
+  filter: invert(100%);
+}
+#control button.inactive {
+  background: transparent;
+}
+#control button.inactive:hover {
+  background: rgba(100, 100, 100, 0.5);
+}
+#control button.inactive img {
+  filter: invert(0%);
+}
+
+
+.canvas-container {
+  position: relative;
+  display: inline-flex;
+  margin: 10px;
+  max-height: 300px;
+  aspect-ratio: 16 / 9;
+  justify-content: center;
+  background: #000;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #111;
+  min-height: 200px;
+}
+.canvas-container .title {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  color: #000;
+  font-size: 14px;
+  border-radius: 15px;
+  border: 1px solid #fff;
+  z-index: 100;
+  padding: 5px 10px;
+}
+.canvas-container canvas {
+  object-fit: cover;
+  height: 100%;
+}

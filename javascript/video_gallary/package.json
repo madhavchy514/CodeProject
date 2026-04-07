@@ -1,0 +1,12 @@
+{
+  "name": "gallery",
+  "version": "1.0.0",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "mime-types": "^3.0.2"
+  }
+}

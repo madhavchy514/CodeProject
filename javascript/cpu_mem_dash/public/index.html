@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Dashboard</title>
+  <script src='./socket.io/socket.io.js'></script>
+  <style>
+    * {
+      padding: 0;
+      margin: 0;
+      border: none;
+      outline: none;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      background: #333;
+      color: #fff;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 20px;
+    }
+    h2 {
+      font-size: 15px;
+    }
+    p {
+      font-size: 15px;
+    }
+    .dashboard-container {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0 0 0;
+    }
+    .chart-box {
+      width: 50%;
+      min-width: 300px;
+      padding: 15px;
+      border: 1px solid #555;
+      border-radius: 8px;
+    }
+    .chart-box canvas {
+      width: 100%;
+      height: 250px;
+      display: block;
+      margin: 20px 0 20px 0;
+      padding: 10px 0 10px 0;
+      border-radius: 10px;
+    }
+    @media screen and (max-width: 900px) {
+      .dashboard-container {
+        flex-direction: column;
+      }
+      .chart-box {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Server Health Monitoring</h1>
+  <p>Status: <strong id='connectionStatus'>Connecting...</strong></p>
+  <div class='dashboard-container'>
+    <div class='chart-box'>
+      <h2>Overall CPU Load (%)</h2>
+      <canvas id='cpuChart'></canvas>
+      <p>Current Load: <strong id='currentCpuLoad'>--%</strong></p>
+    </div>
+    <div class='chart-box'>
+      <h2>Memory Usage (%)</h2>
+      <canvas id='memChart'></canvas>
+      <p>Used: <strong id='currentMemUsed'>-- GB</strong> | Percentage: <strong id='currentMemPercent'>--%</strong></p>
+    </div>
+  </div>
+  <script src="graph.js"></script>
+  <script src='dashboard.js'></script>
+</body>
+</html>

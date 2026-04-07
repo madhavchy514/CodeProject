@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Page Combiner & Rotator</title>
+  <script src="lib/pdf-lib.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f4f9;
+      color: #333;
+      text-align: center;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #0056b3;
+    }
+    input[type="file"] {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 20px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PDF Page Combiner & Rotator 🔄📄</h1>
+    <p>
+      Select a PDF file. Pages will be combined into new pages, 
+      two originals per new page, rotated 90 degrees, stacked top-to-bottom.
+    </p>
+    <input type="file" id="pdfInput" accept=".pdf">
+    <button onclick="processPdfFile()" id="processButton" disabled>Process PDF</button>
+    <div id="status"></div>
+  </div>
+  <script>
+    const { PDFDocument, degrees } = PDFLib;
+    const pdfInput = document.getElementById('pdfInput');
+    const processButton = document.getElementById('processButton');
+    const statusDiv = document.getElementById('status');
+    pdfInput.addEventListener('change', () => {
+      processButton.disabled = !pdfInput.files.length;
+      statusDiv.textContent = pdfInput.files.length ? `Ready to process: ${pdfInput.files[0].name}` : 'Please select a file.';
+    });
+    async function processPdfFile() {
+      const file = pdfInput.files[0];
+      if (!file) {
+        statusDiv.textContent = 'Please select a PDF file first.';
+        return;
+      }
+      statusDiv.textContent = 'Processing... Please wait.';
+      processButton.disabled = true;
+      try {
+        const existingPdfBytes = await file.arrayBuffer();
+        const pdfBytes = await combineAndRotatePages(existingPdfBytes);
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `processed_${file.name}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        statusDiv.textContent = `✅ Done! The processed PDF download has started.`;
+        processButton.disabled = false;
+      } catch (error) {
+        console.error(error);
+        statusDiv.textContent = `❌ An error occurred: ${error.message}`;
+        processButton.disabled = false;
+      }
+    }
+    async function combineAndRotatePages(existingPdfBytes) {
+      const srcPdf = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
+      const newPdf = await PDFDocument.create();
+      const totalPages = srcPdf.getPageCount();
+      for (let i = 0; i < totalPages; i += 2) {
+        const indices = [i];
+        if (i + 1 < totalPages) indices.push(i + 1);
+        const pagesToEmbed = indices.map(idx => srcPdf.getPage(idx));
+        const embeddedPages = await newPdf.embedPages(pagesToEmbed);
+        const pageDims = indices.map(idx => {
+          const p = srcPdf.getPage(idx);
+          return { width: p.getWidth(), height: p.getHeight() };
+        });
+        const rotatedDims = pageDims.map(({ width, height }) => ({ width: height, height: width }));
+        const combinedWidth = Math.max(...rotatedDims.map(d => d.width));
+        const combinedHeight = rotatedDims.reduce((sum, d) => sum + d.height, 0);         
+        const newPage = newPdf.addPage([combinedWidth, combinedHeight]);
+        let currentY = combinedHeight;
+        for (let j = embeddedPages.length - 1; j >= 0; j--) {
+          const ep = embeddedPages[j];
+          const { width: origWidth, height: origHeight } = pageDims[j];           
+          const { width, height } = rotatedDims[j];           
+          currentY -= height; 
+          newPage.drawPage(ep, { x: origHeight, y: currentY, rotate: degrees(90) });
+        }
+      }
+      return newPdf.save();
+    }
+  </script>
+</body>
+</html>

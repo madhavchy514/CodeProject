@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <link rel='stylesheet' href='./style.css'>
+  <link rel='icon' href='./img/favicon.ico'>
+  <title>video call</title>
+</head>
+<body>
+  <div id='alert'>some alert</div>
+  <div id='room'>room#default</div>
+  <video id='local' autoplay playsinline muted></video>
+  <video id='remote' autoplay playsinline></video>
+  <div id='control'>
+    <button id='mic'>mute mic</button>
+    <button id='cam'>stop cam</button>
+  </div>
+  <script src='/socket.io/socket.io.js'></script>
+  <script src='script.js'></script>
+</body>
+</html>
