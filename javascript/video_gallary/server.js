@@ -3,6 +3,7 @@ const path = require('path');
 const express = require('express');
 const mime = require('mime-types');
 const crypto = require('crypto');
+const env = require('dotenv').config({ quiet: true });
 
 class Helper {
   static resolve(reqPath, rootDir) {
@@ -66,11 +67,11 @@ class Helper {
   }
 }
 
-const port = 3000;
+const port = process.env.PORT;
 const app = express();
-const public = path.resolve('./public');
-const root = path.resolve('/home/madhav/LINUX_BULK/');
-const cache = path.resolve('./cache');
+const public = path.resolve(process.env.PUBLIC);
+const root = path.resolve(process.env.ROOT);
+const cache = path.resolve(process.env.CACHE);
 
 app.use(express.static(public));
 app.use('/cache', express.static(cache));
