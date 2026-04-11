@@ -9,11 +9,11 @@ const closeBtn = document.getElementById('close');
 const backBtn = document.getElementById('back');
 const thumbSwitch = document.getElementById('thumb');
 
-let files = [];
-let index = -1;
-let currentDir = '';
-let CHUNK = 1000;
-let emojiBack = '#1a1a1a';
+let FILES = [];
+let INDEX = -1;
+let CURRENT_DIR = '';
+let CHUNK_SIZE = 1000;
+let EMOJI_BACKGROUND = '#1a1a1a';
 
 function emoji(emoji = '', color = null, size = 50) {
   const type = 'data:image/svg+xml;utf8,';
@@ -55,15 +55,15 @@ function formatByte(byte) {
 }
 
 function changeUrl(upath = null) {
-  let str = `?path=${encodeURIComponent(currentDir)}`;
+  let str = `?path=${encodeURIComponent(CURRENT_DIR)}`;
   if (upath) str += `&upath=${encodeURIComponent(upath)}`;
   history.replaceState(null, '', str);
 
   if (upath) {
     document.title = `gallery - ${upath}`;
   } else {
-    if (currentDir.trim() === '') return document.title = 'gallery - root';
-    const parts = currentDir.split('/');
+    if (CURRENT_DIR.trim() === '') return document.title = 'gallery - root';
+    const parts = CURRENT_DIR.split('/');
     document.title = `gallery - ${parts[parts.length - 1]}`;
   }
 }
@@ -148,8 +148,8 @@ async function getWave(audioUrl, size) {
 }
 
 async function load(path = '') {
-  index = -1;
-  currentDir = path;
+  INDEX = -1;
+  CURRENT_DIR = path;
   changeUrl();
   pathLabel.textContent = `root/${path + (path ? '/' : '')}`;
 
@@ -165,10 +165,10 @@ async function load(path = '') {
     return gallery.innerHTML = html;
   }
 
-  files = (data.result || []).sort((a, b) => (b.type === 'inode/directory') - (a.type === 'inode/directory') || b.mtime - a.mtime);
+  FILES = (data.result || []).sort((a, b) => (b.type === 'inode/directory') - (a.type === 'inode/directory') || b.mtime - a.mtime);
   gallery.innerHTML = '';
-  files.forEach((f, i) => build(f, i));
-  if (files.length === 0) {
+  FILES.forEach((f, i) => build(f, i));
+  if (FILES.length === 0) {
     const html = `<div class='error'>empty directory</div>`;
     gallery.innerHTML = html;
   }
@@ -184,17 +184,17 @@ function build(f, i) {
   const info = `<div class='info'>${size} | ${time}</div>${mime}`;
 
   if (f.type === 'inode/directory') {
-    el.innerHTML = `${info + emoji('📁', emojiBack)}<div class=name>${f.base}</div>`;
+    el.innerHTML = `${info + emoji('📁', EMOJI_BACKGROUND)}<div class=name>${f.base}</div>`;
     el.addEventListener('click', () => load(f.path));
   }
 
   else if (isFrame(f.ext, f.type)) {
-    el.innerHTML = `${info + emoji('🪟', emojiBack)}<div class=name>${f.base}</div>`;
+    el.innerHTML = `${info + emoji('🪟', EMOJI_BACKGROUND)}<div class=name>${f.base}</div>`;
     el.addEventListener('click', () => open(i));
   }
   
   else if (f.type.startsWith('image')) {
-    el.innerHTML=`${info + emoji('🖼️', emojiBack)}<div class=name>${f.base}</div>`;
+    el.innerHTML=`${info + emoji('🖼️', EMOJI_BACKGROUND)}<div class=name>${f.base}</div>`;
     el.addEventListener('click', () => open(i));
     el.addEventListener('mouseover', async () => {
       const imgEl = el.querySelector('img');
@@ -205,7 +205,7 @@ function build(f, i) {
   }
 
   else if (f.type.startsWith('video') || f.type.startsWith('audio')) {
-    el.innerHTML = `${info + emoji('📺', emojiBack)}<div class=name>${f.base}</div>`;
+    el.innerHTML = `${info + emoji('📺', EMOJI_BACKGROUND)}<div class=name>${f.base}</div>`;
     el.addEventListener('click', () => open(i));
     el.addEventListener('mouseover', async () => {
       const imgEl = el.querySelector('img');
@@ -229,12 +229,12 @@ function build(f, i) {
   }
   
   else if (isText(f.ext, f.type)) {
-    el.innerHTML = `${info + emoji('📄', emojiBack)}<div class='name'>${f.base}</div>`;
+    el.innerHTML = `${info + emoji('📄', EMOJI_BACKGROUND)}<div class='name'>${f.base}</div>`;
     el.addEventListener('click', () => open(i));
   }
 
   else {
-    el.innerHTML = `${info} ${emoji('❔', emojiBack)}<div class=name>${f.base}</div>`;
+    el.innerHTML = `${info} ${emoji('❔', EMOJI_BACKGROUND)}<div class=name>${f.base}</div>`;
     el.addEventListener('click', () => open(i));
   }
 
@@ -252,7 +252,7 @@ async function openEditor(f) {
   editorEl.className = text ? 'text' : 'hex';
 
   async function loadChunk(scroll = false) {
-    let endByte = Math.min(offset + CHUNK - 1, f.size - 1);
+    let endByte = Math.min(offset + CHUNK_SIZE - 1, f.size - 1);
     const t = text ? 'text' : 'hex';
     const p = `/data?path=${encodeURIComponent(f.path)}&range=${offset}-${endByte}&type=${t}`;
     const response = await fetch(p).then(v => v.json());
@@ -307,10 +307,10 @@ async function openEditor(f) {
 }
 
 async function open(i) {
-  index = i;
-  prevBtn.disabled = index === 0;
-  nextBtn.disabled = index === files.length - 1;
-  const f = files[i];
+  INDEX = i;
+  prevBtn.disabled = INDEX === 0;
+  nextBtn.disabled = INDEX === FILES.length - 1;
+  const f = FILES[i];
   changeUrl(f.base);
   viewer.classList.remove('hidden');
   baseLabel.textContent = f.base;
@@ -376,11 +376,11 @@ async function open(i) {
 }
 
 function next(){
-  if(index < files.length-1) open(index+1);
+  if(INDEX < FILES.length-1) open(INDEX+1);
 }
 
 function prev(){
-  if(index > 0) open(index-1);
+  if(INDEX > 0) open(INDEX-1);
 }
 
 function close() {
@@ -390,7 +390,7 @@ function close() {
 }
 
 function back() {
-  const parts = currentDir.split('/');
+  const parts = CURRENT_DIR.split('/');
   parts.pop();
   load(parts.join('/'));
 }
@@ -400,7 +400,7 @@ async function init(){
   await load(params.get('path') || '');
   if (params.get('upath')) {
     const upath = params.get('upath');
-    let i = files.findIndex(v => v.base === upath);
+    let i = FILES.findIndex(v => v.base === upath);
     if (i !== -1) open(i);
   };
 }
