@@ -7,21 +7,19 @@
 #include "error.hpp"
 #include "file.hpp"
 
-class disk_heap {
+class heap {
   public:
-    file m_fl;
-    struct BitLocation {
+    struct bit_location {
       uint64_t map_offset;
       uint64_t byte_offset;
       uint8_t bit_index;
     };
 
-    uint64_t m_page_size;
+    heap(const heap&) = delete;
+    heap& operator=(const heap&) = delete;
 
-    explicit disk_heap(const std::string& file_path,uint64_t page_size = 4096UL): m_fl(file_path) {
-      if (page_size == 0) throw error("Page size cannot be 0", 0);
-      m_page_size = page_size;
-      m_fl.open_fd();
+    explicit heap(const std::string& file_path, uint64_t page_size): m_fl(file_path) {
+      m_page_size = page_size == 0 ? 4096 : page_size;
     }
 
     uint64_t pointer_offset(uint64_t pointer) {
@@ -30,33 +28,33 @@ class disk_heap {
       return physical_index * m_page_size;
     }
 
-    BitLocation pointer_bitmap(uint64_t pointer) {
+    bit_location pointer_bitmap(uint64_t pointer) {
       uint64_t b = m_page_size * 8;
       uint64_t group = pointer / b;
       uint64_t relative = pointer % b;
-      BitLocation loc;
+      bit_location loc;
       loc.map_offset = group * (b + 1) * m_page_size;
       loc.byte_offset = relative / 8;
       loc.bit_index = relative % 8;
       return loc;
     }
 
-    void free_pointer(uint64_t pointer, bool flush = false) {
-      BitLocation loc = pointer_bitmap(pointer);
+    void free_pointer(uint64_t pointer, bool sync = false) {
+      bit_location loc = pointer_bitmap(pointer);
       uint64_t offset = loc.map_offset + loc.byte_offset;
       uint8_t byte = 0;
-      m_fl.read_fd(&byte, 1, offset);
+      m_fl.read(&byte, 1, offset);
       byte &= ~(1 << loc.bit_index);
-      m_fl.write_fd(&byte, 1, offset, flush);
+      m_fl.write(&byte, 1, offset, sync);
     }
 
-    void allocate_pointer(uint64_t pointer, bool flush = false) {
-      BitLocation loc = pointer_bitmap(pointer);
+    void allocate_pointer(uint64_t pointer, bool sync = false) {
+      bit_location loc = pointer_bitmap(pointer);
       uint64_t offset = loc.map_offset + loc.byte_offset;
       uint8_t byte = 0;
-      m_fl.read_fd(&byte, 1, offset);
+      m_fl.read(&byte, 1, offset);
       byte |= (1 << loc.bit_index);
-      m_fl.write_fd(&byte, 1, offset, flush);
+      m_fl.write(&byte, 1, offset, sync);
     }
 
     uint64_t get_pointer() {
@@ -65,7 +63,7 @@ class disk_heap {
       for (uint64_t group = 0;; group++) {
         uint64_t map_off = group * (b + 1) * m_page_size;
         std::fill(vector.begin(), vector.end(), 0);
-        m_fl.read_fd(vector.data(), m_page_size, map_off);
+        m_fl.read(vector.data(), m_page_size, map_off);
         for (uint64_t j = 0; j < m_page_size; j++) {
           if (vector[j] == 0xFF) continue;
           for (uint8_t bit = 0; bit < 8; bit++) {
@@ -77,4 +75,8 @@ class disk_heap {
         }
       }
     }
+
+  private:
+    file m_fl;
+    uint64_t m_page_size;
 };
