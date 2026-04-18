@@ -1,9 +1,0 @@
-{
-  "name": "ai",
-  "version": "1.0.0",
-  "license": "ISC",
-  "dependencies": {
-    "@tensorflow-models/mobilenet": "^2.1.1",
-    "@tensorflow/tfjs-node": "^4.22.0"
-  }
-}
