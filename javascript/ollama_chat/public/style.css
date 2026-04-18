@@ -1,0 +1,118 @@
+* {
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  box-sizing: border-box;
+}
+body { 
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+  background: #121212;
+  color: #e0e0e0; 
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+
+::-webkit-scrollbar {
+  width: 13px;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+  border: 3px solid #121212
+}
+
+
+#func-div {
+  height: 80px;
+  width: 100%;
+  padding: 20px;
+  background: #1e1e1e;
+  border-top: 1px solid #333;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 16px;
+  position: fixed;
+  bottom: 0;
+}
+#func-div textarea {
+  height: 55px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid #333; 
+  background: #121212;
+  color: white;
+  resize: none;
+  font-size: 16px;
+}
+#func-div button {
+  position: absolute;
+  right: 27px;
+  bottom: 20px;
+  font-size: 16px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 50%;
+  background: #5d5d5d;
+  color: #fff;
+}
+
+
+#chat-div {
+  height: calc(100dvh - 80px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+#chat-div .msg {
+  padding: 15px;
+  border-radius: 12px;
+  max-width: 85%;
+  line-height: 1.6;
+  font-size: 16px;
+  word-wrap: break-word;
+  position: relative;
+}
+#chat-div .user-msg {
+  background: #004a99;
+  align-self: flex-end;
+  color: #fff;
+}
+#chat-div .ai-msg {
+  background: #2d2d2d;
+  align-self: flex-start;
+  border: 1px solid #3d3d3d;
+}
+#chat-div .msg .delete-btn {
+  position: absolute;
+  top: 10px;
+  font-size: 16px;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 50%;
+  background: #5d5d5d;
+  color: #fff;
+}
+#chat-div .user-msg .delete-btn {
+  left: -50px;
+}
+#chat-div .ai-msg .delete-btn {
+  right: -50px;
+}
