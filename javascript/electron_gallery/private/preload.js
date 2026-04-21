@@ -19,7 +19,7 @@ class Helper {
   }
 }
 
-const root = path.resolve('/home/madhav/LINUX_BULK/');
+const root = path.resolve('~/LINUX_BULK/');
 const cache = path.join(__dirname, '..', 'cache');
 const max = 10000;
 
