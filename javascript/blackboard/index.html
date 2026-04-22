@@ -8,20 +8,14 @@
     *{
       padding: 0;
       margin: 0;
-      box-sizing: border-box;
       border: none;
       outline: none;
-      text-decoration: none;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      box-sizing: border-box;
     }
     body, html {
-      margin: 0;
-      padding: 0;
       height: 100%;
-      background-color: #fff;
-      font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+      width: 100%;
       user-select: none;
-      overflow: none;
     }
     canvas{
       position: fixed;
@@ -31,13 +25,12 @@
       cursor: crosshair;
     }
     .controller {
-      width: auto;
-      height: 70px;
+      height: 60px;
       background: rgba(100, 100, 100, 0.7);
       position: fixed;
       bottom: 20px;
       left: 20px;
-      border-radius: 5px;
+      border-radius: 10px;
       box-shadow: 0 0 3px #222;
       display: flex;
       justify-content: baseline;
@@ -49,11 +42,11 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      padding: 0 15px;
+      padding: 0 10px;
       height: 100%;
     }
     .controller div.color{
-      padding: 0 15px 0 5px;
+      padding: 0 10px 0 5px;
     }
     .controller div.buttons{
       flex-direction: row;
@@ -62,7 +55,7 @@
     .controller div span {
       font-size: 10px;
       color: #ddd;
-      padding-bottom: 10px;
+      padding-bottom: 5px;
     }
     .controller div input[type="range"]{
       width: 55px;
@@ -150,31 +143,31 @@
     </div>
   </div>
   <script>
-    var slider = document.querySelector('input[type="range"]');
+    const slider = document.querySelector('input[type="range"]');
     window.addEventListener('load', seekOne);
     slider.addEventListener('input', seekOne);
     
-    function seekOne(){
-      var value = slider.value;
+    function seekOne (){
+      const value = slider.value;
       document.querySelector("#b").innerHTML = value;
       slider.style.background = 
       `linear-gradient(
-      to right, 
-      #4CAF50 0%, 
-      #4CAF50 ${((value - slider.min) / (slider.max - slider.min)) * 100}%, 
-      #ddd ${((value - slider.min) / (slider.max - slider.min)) * 100}%, 
-      #ddd 100%
-    )`;
+        to right, 
+        #4CAF50 0%, 
+        #4CAF50 ${((value - slider.min) / (slider.max - slider.min)) * 100}%, 
+        #ddd ${((value - slider.min) / (slider.max - slider.min)) * 100}%, 
+        #ddd 100%
+      )`;
     }
     slider.dispatchEvent(new Event('input'));
     
-    var colorer = document.getElementById("colorPicker")
+    const colorer = document.getElementById("colorPicker")
     window.addEventListener('load', seekTwo);
     colorer.addEventListener("input", seekTwo)
     
     function seekTwo(){
-      var value = colorer.value;
-      var text = value.replace("#", "")
+      const value = colorer.value;
+      const text = value.replace("#", "")
       document.querySelector("#c").innerHTML = text;
     }
     
@@ -246,14 +239,11 @@
       undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
       redoStack = [];
       updateButtonStates();
-    }
-    
-    
+    }    
     function updateButtonStates() {
       undoButton.disabled = undoStack.length === 0;
       redoButton.disabled = redoStack.length === 0;
     }
-    
     function setDrawingMode(mode) {
       isBrushMode = mode === 'brush' && (isBrushMode = !isBrushMode);
       isEraserMode = mode === 'eraser' && (isEraserMode = !isEraserMode);
@@ -273,7 +263,6 @@
       if (isDashedLineMode) dashedLineButton.style.backgroundColor = '#45a049';
       if (isArrowLineMode) arrowLineButton.style.backgroundColor = '#45a049';
     }
-    
     function start(e) {
       if(!isBrushMode && !isEraserMode && !isSolidLineMode && !isDashedLineMode && !isArrowLineMode) return;
       draw = true;
@@ -306,7 +295,6 @@
       if (draw) {saveState();}
       draw = false;
     }
-    
     function drawInk(x1, y1, x2, y2) {
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -334,17 +322,16 @@
       const angle = Math.atan2(y2 - y1, x2 - x1);
       const arrowLength = 15;
       const arrowAngle = Math.PI / 6;
-      
       ctx.beginPath();
       ctx.moveTo(x2, y2);
       ctx.lineTo(
-      x2 - arrowLength * Math.cos(angle - arrowAngle),
-      y2 - arrowLength * Math.sin(angle - arrowAngle)
+        x2 - arrowLength * Math.cos(angle - arrowAngle),
+        y2 - arrowLength * Math.sin(angle - arrowAngle)
       );
       ctx.moveTo(x2, y2);
       ctx.lineTo(
-      x2 - arrowLength * Math.cos(angle + arrowAngle),
-      y2 - arrowLength * Math.sin(angle + arrowAngle)
+        x2 - arrowLength * Math.cos(angle + arrowAngle),
+        y2 - arrowLength * Math.sin(angle + arrowAngle)
       );
       ctx.stroke();
     }
