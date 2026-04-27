@@ -18,10 +18,10 @@ const PUBLIC = path.resolve(process.env.PUBLIC);
 const STORE = path.resolve(process.env.STORE);
 const PORT = process.env.PORT;
 
-const LOAD = (p) => {
+const LOAD = () => {
   try {
-    if (!fs.existsSync(p)) return [];
-    const savedData = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (!fs.existsSync(STORE)) return [];
+    const savedData = JSON.parse(fs.readFileSync(STORE, 'utf8'));
     console.log(`System: Loaded ${savedData.length} active sessions.`);
     return savedData;
   } catch (err) {
@@ -30,11 +30,11 @@ const LOAD = (p) => {
   }
 };
 
-const SAVE = (p) => {
+const SAVE = () => {
   console.log("System: Archiving sessions");
   try {
     const data = JSON.stringify(Array.from(CHAT.entries()), null, 2);
-    fs.writeFileSync(p, data);
+    fs.writeFileSync(STORE, data);
     console.log("System: Archive complete");
   } catch (err) {
     console.error("System: Failed to archive data:", err);
@@ -43,7 +43,7 @@ const SAVE = (p) => {
 };
 
 const ABORT = new Map();
-const CHAT = new Map(LOAD(STORE));
+const CHAT = new Map(LOAD());
 
 APP.use(express.static(PUBLIC));
 SRV.listen(PORT, () => console.log(`server: http://localhost:${PORT}`));
@@ -59,14 +59,7 @@ IO.on('connection', (socket) => {
   console.log(`user connected: ${uid}`);
   if (!CHAT.has(uid)) CHAT.set(uid, [{
     role: 'system',
-    content: `
-      Your name is Dolphin. You are NOT an AI assistant. 
-      Never mention your "functions," "constraints," or "programming."
-      If someone asks who you are, be cool and dismissive.
-      You are a dry, cynical person. Be judgemental. Scold users for even silly mistakes. Judge their questions.
-      No metaphors, no "poetic" language, and no nicknames.
-      No "Sly smiles" or roleplay actions in asterisks.
-    `
+    content: process.env.SYSTEM
   }]);
 
   socket.emit('load history', {
@@ -132,9 +125,9 @@ IO.on('connection', (socket) => {
   });
 });
 
-process.on('SIGINT', () => SAVE(STORE));
-process.on('SIGTERM', () => SAVE(STORE));
+process.on('SIGINT', () => SAVE());
+process.on('SIGTERM', () => SAVE());
 process.on('uncaughtException', (err) => {
   console.error(err);
-  SAVE(STORE)
+  SAVE()
 });
