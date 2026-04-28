@@ -11,10 +11,11 @@ class Media {
   stream = null;
   /** @type {null | HTMLVideoElement} */
   video = null;
-  camera = true;
-  audio = true;
 
+  camera = true;
+  microphone = true;
   face = true;
+
   width = 640;
   height = 480;
   fps = 30;
@@ -31,7 +32,7 @@ class Media {
 
   async deploy() {
     this.stop();
-    if (!this.camera && !this.audio) return;
+    if (!this.camera && !this.microphone) return;
     await this.start();
   }
 
@@ -43,7 +44,7 @@ class Media {
         width: { ideal: this.width },
         height: { ideal: this.height }
       } : false,
-      audio: this.audio ? {
+      audio: this.microphone ? {
         noiseSuppression: !this.noise,
         echoCancellation: !this.echo,
       } : false
@@ -82,7 +83,7 @@ class Media {
   }
 
   toggleAudio(enabled) {
-    if (!this.stream || !this.audio) return;
+    if (!this.stream || !this.microphone) return;
     const audioTrack = this.stream.getAudioTracks();
     audioTrack.forEach(t => t.enabled = enabled);
   }
@@ -167,80 +168,145 @@ class MediaCode {
   }
 }
 
-function main() {
-  const socket = io();
-  const fps = 30;
-  const quality = 0.5;
-  const remoteUsers = {};
-  const media = new Media();
-  const container = document.getElementById('container');
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const fps = 15;
+const audioIntervalMs = 10;
+const quality = 0.3;
 
-  async function init() {
-    await media.deploy();
-    const myCanvas = createUserElement(socket.id, true);
-    myCanvas.width = media.width; 
-    myCanvas.height = media.height;
-    const myCtx = myCanvas.getContext('2d');
-    setInterval(async () => {
-      if (media.video && media.stream) {
-        myCtx.drawImage(media.video, 0, 0, myCanvas.width, myCanvas.height);
-        const base64 = await MediaCode.encodeVideoToBase64(myCanvas, quality);
-        socket.emit('video broadcast request', { 
-          data: base64,
-          width: media.width, 
-          height: media.height 
-        });
-      }
-    }, (1000 / fps));
+const container = document.getElementById('container');
+const camera = document.getElementById('camera');
+const microphone = document.getElementById('microphone');
+const reverse = document.getElementById('reverse');
 
-    const sendAudio = async () => {
-      if (media.stream && media.audio) {
-        const base64 = await MediaCode.encodeAudioToBase64(media.stream, 200);
-        socket.emit('audio broadcast request', { data: base64 });
-      }
-      sendAudio();
-    };
-    sendAudio();
-  }
+const socket = io();
+const remoteUsers = {};
+const media = new Media();
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-  socket.on('video broadcast', async ({ id, data, width, height }) => {
-    if (!remoteUsers[id]) remoteUsers[id] = createUserElement(id);
-    const canvas = remoteUsers[id].querySelector('canvas');
-    if (canvas.width !== width) canvas.width = width;
-    if (canvas.height !== height) canvas.height = height;
-    await MediaCode.decodeVideoFromBase64(canvas, data);
-  });
+const myVideo = media.video;
+const myDiv = createUserElement(null);
+const myCanvas = myDiv.querySelector('canvas');
+const myCtx = myCanvas.getContext('2d');
 
-  socket.on('audio broadcast', async ({ id, data }) => {
-    await MediaCode.decodeAudioFromBase64(data, audioCtx);
-  });
-
-  socket.on('user left', ({ id }) => {
-    if (remoteUsers[id]) {
-      remoteUsers[id].remove();
-      delete remoteUsers[id];
-    }
-  });
-
-  function createUserElement(id, isLocal = false) {
-    const div = document.createElement('div');
-    div.className = 'user';
-    div.id = `user-${id}`;
-
-    const canvas = document.createElement('canvas');
-    const title = document.createElement('div');
-    title.className = 'title';
-    title.innerText = isLocal ? 'You' : `User: ${id}`;
-
-    div.append(canvas, title);
-    container.appendChild(div);
-
-    if (!isLocal) remoteUsers[id] = div;
-    return isLocal ? canvas : div;
-  }
-
-  init().catch(console.error);
+function createUserElement(id = null) {
+  const div = document.createElement('div');
+  div.className = 'user';
+  div.id = `user-${id}`;
+  const canvas = document.createElement('canvas');
+  const title = document.createElement('div');
+  title.className = 'title';
+  title.innerText = id === null ? `you` : `user: ${id}`;
+  div.append(canvas, title);
+  container.appendChild(div);
+  if (id !== null) remoteUsers[id] = div;
+  return div;
 }
 
-main();
+async function broadcastVideo () {
+  if (myVideo && media.stream && media.camera) {
+    myCtx.drawImage(myVideo, 0, 0, myCanvas.width, myCanvas.height);
+    const base64 = await MediaCode.encodeVideoToBase64(myCanvas, quality);
+    socket.emit('video broadcast request', { 
+      data: base64,
+      width: media.width, 
+      height: media.height 
+    });
+  } else {
+    socket.emit('video broadcast request', { data: null, width: null, height: null });
+    myCtx.clearRect(0, 0, myCanvas.width, myCanvas.height);
+  }
+
+  setMuteTag(myDiv, !media.microphone);
+  setTimeout(broadcastVideo, 1000 / fps);
+}
+
+async function broadcastAudio() {
+  if (media.stream && media.microphone) {
+    const base64 = await MediaCode.encodeAudioToBase64(media.stream, 300);
+    socket.emit('audio broadcast request', { data: base64 });
+  } else {
+    socket.emit('audio broadcast request', { data: null });
+  }
+  setTimeout(broadcastAudio, audioIntervalMs);
+}
+
+function syncUi() {
+  media.camera ? camera.classList.remove('inactive') : camera.classList.add('inactive');
+  media.microphone ? microphone.classList.remove('inactive') : microphone.classList.add('inactive');
+  media.face ? reverse.classList.add('inactive') : reverse.classList.remove('inactive');
+}
+
+async function init() {
+  media.camera = false;
+  media.microphone = false;
+  media.face = true;
+  media.fps = fps;
+  myCanvas.width = media.width;
+  myCanvas.height = media.height;
+  syncUi();
+  broadcastVideo();
+  broadcastAudio();
+}
+
+socket.on('video broadcast', async ({ id, data, width, height }) => {
+  if (!remoteUsers[id]) remoteUsers[id] = createUserElement(id);
+  const canvas = remoteUsers[id].querySelector('canvas');
+  if (width && canvas.width !== width) canvas.width = width;
+  if (height && canvas.height !== height) canvas.height = height;
+  if (data) return await MediaCode.decodeVideoFromBase64(canvas, data);
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+});
+
+function setMuteTag(userDiv, muted) {
+  let muteTag = userDiv.querySelector('.muted');
+  if (muted && !muteTag) {
+    muteTag = document.createElement('span');
+    muteTag.className = 'muted';
+    muteTag.style.color = 'red';
+    muteTag.innerHTML = 'M&nbsp;';
+    userDiv.querySelector('.title').prepend(muteTag);
+  } else if (!muted && muteTag) {
+    muteTag.remove();
+  }
+}
+
+socket.on('audio broadcast', async ({ id, data }) => {
+  const user = remoteUsers[id];
+  if (!user) return;
+  setMuteTag(user, !data);
+  if (data) await MediaCode.decodeAudioFromBase64(data, audioCtx);
+});
+
+socket.on('user left', ({ id }) => {
+  if (remoteUsers[id]) {
+    remoteUsers[id].remove();
+    delete remoteUsers[id];
+  }
+});
+
+socket.on('user list', ({ ids }) => {
+  for (const id of ids) {
+    if (remoteUsers[id]) continue;
+    remoteUsers[id] = createUserElement(id);
+  }
+});
+
+camera.onclick = () => {
+  media.camera = !media.camera;
+  media.deploy();
+  syncUi();
+}
+
+microphone.onclick = () => {
+  media.microphone = !media.microphone;
+  media.deploy();
+  syncUi();
+}
+
+reverse.onclick = () => {
+  media.face = !media.face;
+  media.deploy();
+  syncUi();
+}
+
+init();
