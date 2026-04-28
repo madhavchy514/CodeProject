@@ -168,9 +168,19 @@ class MediaCode {
   }
 }
 
-const fps = 15;
+const timerWorker = new Worker(URL.createObjectURL(new Blob([`
+  self.onmessage = function(e) {
+    const { type, interval } = e.data;
+    setTimeout(() => {
+      self.postMessage('tick-' + type);
+    }, interval);
+  };
+`], { type: 'application/javascript' })));
+
+const fps = 120;
 const audioIntervalMs = 10;
 const quality = 0.3;
+const recordTimeMs = 500;
 
 const container = document.getElementById('container');
 const camera = document.getElementById('camera');
@@ -216,17 +226,30 @@ async function broadcastVideo () {
   }
 
   setMuteTag(myDiv, !media.microphone);
-  setTimeout(broadcastVideo, 1000 / fps);
+  timerWorker.postMessage({ type: 'video', interval: 1000 / fps });
 }
 
 async function broadcastAudio() {
   if (media.stream && media.microphone) {
-    const base64 = await MediaCode.encodeAudioToBase64(media.stream, 300);
+    const base64 = await MediaCode.encodeAudioToBase64(media.stream, recordTimeMs);
     socket.emit('audio broadcast request', { data: base64 });
   } else {
     socket.emit('audio broadcast request', { data: null });
   }
-  setTimeout(broadcastAudio, audioIntervalMs);
+  timerWorker.postMessage({ type: 'audio', interval: audioIntervalMs });
+}
+
+function setMuteTag(userDiv, muted) {
+  let muteTag = userDiv.querySelector('.muted');
+  if (muted && !muteTag) {
+    muteTag = document.createElement('span');
+    muteTag.className = 'muted';
+    muteTag.style.color = 'red';
+    muteTag.innerHTML = 'M&nbsp;';
+    userDiv.querySelector('.title').prepend(muteTag);
+  } else if (!muted && muteTag) {
+    muteTag.remove();
+  }
 }
 
 function syncUi() {
@@ -243,6 +266,12 @@ async function init() {
   myCanvas.width = media.width;
   myCanvas.height = media.height;
   syncUi();
+
+  timerWorker.onmessage = (e) => {
+    if (e.data === 'tick-video') broadcastVideo();
+    if (e.data === 'tick-audio') broadcastAudio();
+  };
+
   broadcastVideo();
   broadcastAudio();
 }
@@ -256,19 +285,6 @@ socket.on('video broadcast', async ({ id, data, width, height }) => {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 });
-
-function setMuteTag(userDiv, muted) {
-  let muteTag = userDiv.querySelector('.muted');
-  if (muted && !muteTag) {
-    muteTag = document.createElement('span');
-    muteTag.className = 'muted';
-    muteTag.style.color = 'red';
-    muteTag.innerHTML = 'M&nbsp;';
-    userDiv.querySelector('.title').prepend(muteTag);
-  } else if (!muted && muteTag) {
-    muteTag.remove();
-  }
-}
 
 socket.on('audio broadcast', async ({ id, data }) => {
   const user = remoteUsers[id];
