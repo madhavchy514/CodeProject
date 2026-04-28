@@ -1,1 +1,0 @@
-/home/madhav/LINUX_BULK/project/javascript/canvas_chart/graph.js

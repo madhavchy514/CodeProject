@@ -1,7 +1,7 @@
 {
-  "name": "database",
+  "name": "database_poor",
   "version": "1.0.0",
-  "license": "ISC",
+  "license": "MIT",
   "main": "./src/index.js",
   "module": "./src/index.js",
   "types": "./src/index.d.ts",
