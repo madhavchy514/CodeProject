@@ -6,6 +6,12 @@ img/
 video/
 cache/
 cert/
+.venv/
+.lib/
+.img/
+.video/
+.cache/
+.cert/
 .env
 *.exe
 *.o
