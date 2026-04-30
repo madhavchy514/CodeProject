@@ -5,180 +5,149 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define VECTOR_INIT_CAP 16
+#define VECTOR_INITIAL_CAPACITY 16
 
 typedef struct {
   void* data;
   size_t size;
-  size_t capacity;
-  size_t value_size;
+  size_t cap;
+  size_t unit;
 } vector_t;
 
-static inline bool vector_mul_overflow(size_t a, size_t b) {
-  return b == 0 ? false : a > SIZE_MAX / b;
+static inline bool vector_fit_mul(size_t a, size_t b) {
+  if (a == 0 || b == 0) return true;
+  return a <= SIZE_MAX / b;
 }
 
-static inline bool vector_add_overflow(size_t a, size_t b) {
-  return a > SIZE_MAX - b;
+static inline bool vector_add_mul(size_t a, size_t b) {
+  return a <= SIZE_MAX - b;
 }
 
 static inline bool vector_invalid(const vector_t* v) {
-  return v == NULL || v->value_size == 0 || v->size > v->capacity || ((v->capacity == 0) != (v->data == NULL));
+  return !v || v->unit == 0 || v->size > v->cap || ((v->cap == 0) != (!v->data));
 }
 
-static inline vector_t* vector_create(size_t initial_capacity, size_t value_size) {
-  if (value_size == 0 || vector_mul_overflow(initial_capacity, value_size)) {
-    return NULL;
-  }
+static inline vector_t* vector_create(size_t cap, size_t unit) {
+  if (unit == 0 || !vector_fit_mul(cap, unit)) return NULL;
 
-  vector_t* vector = (vector_t*)malloc(sizeof(vector_t));
-  if (vector == NULL) {
-    return NULL;
-  }
+  vector_t* v = (vector_t*)malloc(sizeof(vector_t));
+  if (!v) return NULL;
 
-  size_t bytes = initial_capacity * value_size;
-
-  if (initial_capacity == 0) {
-    vector->data = NULL;
-  } else {
-    vector->data = (void*)malloc(bytes);
-    if (vector->data == NULL) {
-      free(vector);
+  v->data = NULL;
+  if (cap != 0) {
+    size_t bytes = cap * unit;
+    v->data = (void*)malloc(bytes);
+    if (!v->data) {
+      free(v);
       return NULL;
     }
   }
 
-  vector->size = 0;
-  vector->capacity = initial_capacity;
-  vector->value_size = value_size;
-
-  return vector;
+  v->size = 0;
+  v->cap = cap;
+  v->unit = unit;
+  return v;
 }
 
-static inline vector_t* vector_clone(const vector_t* vector) {
-  if (vector_invalid(vector) || vector_mul_overflow(vector->size, vector->value_size)) {
-    return NULL;
+static inline vector_t* vector_clone(const vector_t* v) {
+  if (vector_invalid(v)) return NULL;
+
+  vector_t* nv = vector_create(v->cap, v->unit);
+  if (!nv) return NULL;
+
+  if (v->size != 0) {
+    size_t bytes = v->size * v->unit;
+    memcpy(nv->data, v->data, bytes);
   }
 
-  vector_t* new_vector = vector_create(vector->capacity, vector->value_size);
-  if (new_vector == NULL) {
-    return NULL;
-  }
-
-  if (vector->capacity != 0) {
-    memcpy(new_vector->data, vector->data, vector->size * vector->value_size);
-  }
-
-  new_vector->size = vector->size;
-  return new_vector;
+  nv->size = v->size;
+  return nv;
 }
 
-static inline void vector_free(vector_t* vector) {
-  if (vector != NULL) {
-    free(vector->data);
-    free(vector);
-  }
+static inline void vector_free(vector_t* v) {
+  if (!v) return;
+  free(v->data);
+  free(v);
 }
 
-static inline bool vector_capacity_change(vector_t* vector, size_t new_capacity) {
-  if (vector_invalid(vector) || new_capacity < vector->size || vector_mul_overflow(new_capacity, vector->value_size)) {
-    return false;
-  }
+static inline bool vector_reserve(vector_t* v, size_t cap, const void* data) {
+  if (vector_invalid(v) || cap < v->size || !vector_fit_mul(cap, v->unit)) return false;
+  if (cap == v->cap) return true;
 
-  if (new_capacity == vector->capacity) {
-    return true;
-  }
-
-  size_t bytes = new_capacity * vector->value_size;
-  void* new_data;
-
-  if (new_capacity == 0) {
-    free(vector->data);
-    new_data = NULL;
+  if (cap == 0) {
+    free(v->data);
+    v->data = NULL;
   } else {
-    new_data = (void*)realloc(vector->data, bytes);
-    if (new_data == NULL) {
-      return false;
+    size_t bytes = cap * v->unit;
+    void* nd = (void*)realloc(v->data, bytes);
+    if (!nd) return false;
+    v->data = nd;
+    if (data) for (size_t i = 0; i < cap - v->size; i++) {
+      size_t off = (v->size + i) * v->unit;
+      memcpy((uint8_t*)nd + off, data, v->unit);
     }
   }
 
-  vector->data = new_data;
-  vector->capacity = new_capacity;
-
+  v->cap = cap;
   return true;
 }
 
-static inline bool vector_capacity_grow(vector_t* vector) {
-  if (vector_invalid(vector) || vector_add_overflow(vector->capacity, vector->capacity / 2)) {
-    return false;
-  }
-
-  size_t new_capacity = vector->capacity < VECTOR_INIT_CAP ? VECTOR_INIT_CAP : vector->capacity + vector->capacity / 2;
-  return vector_capacity_change(vector, new_capacity);
+static inline bool vector_grow(vector_t* v) {
+  if (vector_invalid(v) || !vector_add_mul(v->cap, v->cap / 2)) return false;
+  size_t i_cap = VECTOR_INITIAL_CAPACITY;
+  size_t n_cap = v->cap < i_cap ? i_cap : v->cap + (v->cap / 2);
+  return vector_reserve(v, n_cap, NULL);
 }
 
-static inline bool vector_insert(vector_t* vector, size_t index, const void* value) {
-  if (vector_invalid(vector) || value == NULL || index > vector->size) {
-    return false;
-  }
+static inline bool vector_insert(vector_t* v, size_t i, const void* data) {
+  if (!data || vector_invalid(v) || i > v->size || !vector_add_mul(v->size, 1) || !vector_fit_mul((v->size + 1), v->unit)) return false;
 
-  if (vector->size >= vector->capacity && vector_capacity_grow(vector) == false) {
-    return false;
-  }
-
-  if (index < vector->size) {
-    if (vector_add_overflow(vector->size, 1) || vector_mul_overflow(vector->size + 1, vector->value_size)) {
+  if (v->size >= v->cap)
+    if (!vector_grow(v)) 
       return false;
-    }
 
-    void* dst = (uint8_t*)vector->data + ((index + 1) * vector->value_size);
-    void* src = (uint8_t*)vector->data + (index * vector->value_size);
-    memmove(dst, src, (vector->size - index) * vector->value_size);
+  if (i < v->size) {
+    void* dst = (uint8_t*)v->data + ((i + 1) * v->unit);
+    void* src = (uint8_t*)v->data + (i * v->unit);
+    size_t len = (v->size - i) * v->unit;
+    memmove(dst, src, len);
   }
 
-  memcpy((uint8_t*)vector->data + (index * vector->value_size), value, vector->value_size);
-  vector->size = vector->size + 1;
-
+  void* dst = (uint8_t*)v->data + (i * v->unit);
+  memcpy(dst, data, v->unit);
+  v->size++;
   return true;
 }
 
-static inline void* vector_get(const vector_t* vector, size_t index) {
-  if (vector_invalid(vector) || index >= vector->size) {
-    return NULL;
-  }
-
-  return (uint8_t*)vector->data + (index * vector->value_size);
-}
-
-static inline bool vector_copy_get(const vector_t* vector, size_t index, void* dst) {
-  if (dst == NULL) {
-    return false;
-  }
-
-  void* value = vector_get(vector, index);
-  if (value == NULL) {
-    return false;
-  }
-
-  memcpy(dst, value, vector->value_size);
+static inline bool vector_update(vector_t* v, size_t i, const void* data) {
+  if (!data || vector_invalid(v) || i >= v->size) return false;
+  void* dst  = (uint8_t*)v->data + (i * v->unit);
+  memcpy(dst, data, v->unit);
   return true;
 }
 
-static inline bool vector_delete(vector_t* vector, size_t index) {
-  if (vector_invalid(vector) || index >= vector->size) {
-    return false;
+static inline bool vector_remove(vector_t* v, size_t i) {
+  if (vector_invalid(v) || v->size == 0 || i >= v->size || !vector_fit_mul(v->size, v->unit)) return false;
+
+  if (i < v->size - 1) {
+    void* dst = (uint8_t*)v->data + (i * v->unit);
+    void* src = (uint8_t*)v->data + ((i + 1) * v->unit);
+    size_t len = (v->size - i - 1) * v->unit;
+    memmove(dst, src, len);
   }
 
-  if (index < vector->size - 1) {
-    if (vector_mul_overflow(vector->size, vector->value_size)) {
-      return false;
-    }
+  v->size--;
+  return true;
+}
 
-    void* dst = (uint8_t*)vector->data + (index * vector->value_size);
-    void* src = (uint8_t*)vector->data + ((index + 1) * vector->value_size);
-    memmove(dst, src, (vector->size - index - 1) * vector->value_size);
-  }
+static inline void* vector_at(const vector_t* v, size_t i) {
+  if (vector_invalid(v) || i >= v->size) return NULL;
+  return (uint8_t*)v->data + (i * v->unit);
+}
 
-  vector->size = vector->size - 1;
+static inline bool vector_extract(const vector_t* v, size_t i, void* dst) {
+  void* src = vector_at(v, i);
+  if (!dst || !src) return false;
+  memcpy(dst, src, v->unit);
   return true;
 }
