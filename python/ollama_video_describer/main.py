@@ -1,7 +1,12 @@
+import os, sys
+
+VENV_PYTHON = os.path.join(os.path.dirname(__file__), "venv", "bin", "python")
+if sys.executable != VENV_PYTHON and os.path.exists(VENV_PYTHON):
+  os.execl(VENV_PYTHON, VENV_PYTHON, *sys.argv)
+
 import ollama
-import cv2
-import os
 import dotenv
+import cv2
 
 dotenv.load_dotenv()
 
