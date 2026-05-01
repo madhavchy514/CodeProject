@@ -21,17 +21,13 @@ typedef struct {
   size_t cap;
 } hashmap_t;
 
-static inline bool hashmap_fit_mul(size_t a, size_t b) {
+static inline bool _hashmap_fit_mul(size_t a, size_t b) {
   if (a == 0 || b == 0) return true;
   return a <= SIZE_MAX / b;
 }
 
-static inline bool hashmap_invalid(const hashmap_t* map) {
-  return !map || map->size > map->cap || ((map->cap == 0) != (!map->bucket));
-}
-
-static inline size_t hashmap_hash(const void* key, size_t ksize, size_t cap) {
-  if (cap == 0 || ksize == 0 || !key) return 0;
+static inline size_t _hashmap_hash(const void* key, size_t ksize, size_t cap) {
+  if (cap == 0 || !key || ksize == 0) return 0;
 
   const uint8_t* data = (const uint8_t*)key;
   uint64_t hash = 14695981039346656037ULL;
@@ -44,8 +40,44 @@ static inline size_t hashmap_hash(const void* key, size_t ksize, size_t cap) {
   return (size_t)(hash % cap);
 }
 
+static inline hashmap_node_t* _hashmap_node_create(const void* key, const void* value, size_t ksize, size_t vsize) {
+  if (!key || !value || ksize == 0 || vsize == 0) return NULL;
+
+  hashmap_node_t* node = (hashmap_node_t*)malloc(sizeof(hashmap_node_t));
+  if (!node) return NULL;
+
+  node->key = (void*)malloc(ksize);
+  if (!node->key) {
+    free(node);
+    return NULL;
+  }
+
+  node->value = (void*)malloc(vsize);
+  if (!node->value) {
+    free(node->key);
+    free(node);
+    return NULL;
+  }
+
+  memcpy(node->key, key, ksize);
+  memcpy(node->value, value, vsize);
+
+  node->ksize = ksize;
+  node->vsize = vsize;
+  node->deleted = false;
+  return node;
+}
+
+static inline void _hashmap_node_free(hashmap_node_t* node) {
+  if (!node) return;
+  free(node->key);
+  free(node->value);
+  free(node);
+}
+
+/** @returns [hashmap_t: success] [NULL: error] */
 static inline hashmap_t* hashmap_create(size_t cap) {
-  if (!hashmap_fit_mul(cap, sizeof(hashmap_node_t*))) return NULL;
+  if (!_hashmap_fit_mul(cap, sizeof(hashmap_node_t*))) return NULL;
 
   hashmap_t* map = (hashmap_t*)malloc(sizeof(hashmap_t));
   if (!map) return NULL;
@@ -65,59 +97,15 @@ static inline hashmap_t* hashmap_create(size_t cap) {
   return map;
 }
 
-static inline hashmap_node_t* hashmap_node_create(const void* key, const void* value, size_t ksize, size_t vsize) {
-  hashmap_node_t* node = (hashmap_node_t*)malloc(sizeof(hashmap_node_t));
-  if (!node) return NULL;
-
-  if (!key || ksize == 0) {
-    node->key = NULL;
-    node->ksize = 0;
-  } else {
-    node->ksize = ksize;
-    node->key = (void*)malloc(ksize);
-    if (!node->key) {
-      free(node);
-      return NULL;
-    } else {
-      memcpy(node->key, key, ksize);
-    }
-  }
-
-  if (!value || vsize == 0) {
-    node->value = NULL;
-    node->vsize = 0;
-  } else {
-    node->vsize = vsize;
-    node->value = (void*)malloc(vsize);
-    if (!node->value) {
-      free(node->key);
-      free(node);
-      return NULL;
-    } else {
-      memcpy(node->value, value, vsize);
-    }
-  }
-
-  node->deleted = false;
-  return node;
-}
-
-static inline void hashmap_node_free(hashmap_node_t* node) {
-  if (!node) return;
-  free(node->key);
-  free(node->value);
-  free(node);
-}
-
 static inline void hashmap_free(hashmap_t* map) {
-  if (hashmap_invalid(map)) return;
-  for (size_t i = 0; i < map->cap; i++) hashmap_node_free(map->bucket[i]);
+  if (!map) return;
+  for (size_t i = 0; i < map->cap; i++) _hashmap_node_free(map->bucket[i]);
   free(map->bucket);
   free(map);
 }
 
 static inline bool hashmap_reserve(hashmap_t* map, size_t cap) {
-  if (hashmap_invalid(map) || cap < map->size || !hashmap_fit_mul(cap, sizeof(hashmap_node_t*))) return false;
+  if (!map || cap < map->size || !_hashmap_fit_mul(cap, sizeof(hashmap_node_t*))) return false;
 
   if (cap == 0) {
     free(map->bucket);
@@ -133,10 +121,10 @@ static inline bool hashmap_reserve(hashmap_t* map, size_t cap) {
     hashmap_node_t* node = map->bucket[i];
     if (!node) continue;
     if (node->deleted) {
-      hashmap_node_free(node);
+      _hashmap_node_free(node);
       continue;
     } else {
-      size_t index = hashmap_hash(node->key, node->ksize, cap);
+      size_t index = _hashmap_hash(node->key, node->ksize, cap);
       while (nb[index]) index = (index + 1) % cap;
       nb[index] = node;
     }
@@ -149,71 +137,80 @@ static inline bool hashmap_reserve(hashmap_t* map, size_t cap) {
 }
 
 static inline bool hashmap_grow(hashmap_t* map) {
-  if (hashmap_invalid(map) || !hashmap_fit_mul(map->cap, 2)) return false;
+  if (!map || !_hashmap_fit_mul(map->cap, 2)) return false;
   size_t i_cap = HASHMAP_INITIAL_CAPACITY;
   size_t n_cap = map->cap < i_cap ? i_cap : map->cap * 2;
   return hashmap_reserve(map, n_cap);
 }
 
-static inline bool hashmap_insert(hashmap_t* map, const void* key, const void* value, size_t ksize, size_t vsize, bool* update) {
-  if (hashmap_invalid(map) || !hashmap_fit_mul(map->cap, 3)) return false;
-  if ((map->cap == 0 || map->size >= (map->cap * 3) / 4) && !hashmap_grow(map)) return false;
+/** @returns [-1: error] [0: updated] [1: inserted] */
+static inline int hashmap_insert(hashmap_t* map, const void* key, const void* value, size_t ksize, size_t vsize) {
+  if (!map || !_hashmap_fit_mul(map->cap, 3) || !key || !value || ksize == 0 || vsize == 0) return -1;
+  if ((map->cap == 0 || map->size >= (map->cap * 3) / 4) && !hashmap_grow(map)) return -1;
 
-  hashmap_node_t* node = hashmap_node_create(key, value, ksize, vsize);
-  if (!node) return false;
-  if (update) *update = false;
+  hashmap_node_t* node = _hashmap_node_create(key, value, ksize, vsize);
+  if (!node) return -1;
 
-  size_t index = hashmap_hash(key, ksize, map->cap);
+  size_t index = _hashmap_hash(key, ksize, map->cap);
   size_t start = index;
 
   while (true) {
     if (!map->bucket[index]) {
       map->bucket[index] = node;
       map->size++;
-      return true;
+      return 1;
     } else if (map->bucket[index]->deleted) {
-      hashmap_node_free(map->bucket[index]);
+      _hashmap_node_free(map->bucket[index]);
       map->bucket[index] = node;
       map->size++;
-      return true;
+      return 1;
     } else if (map->bucket[index]->ksize == ksize && memcmp(map->bucket[index]->key, key, ksize) == 0) {
-      hashmap_node_free(map->bucket[index]);
+      _hashmap_node_free(map->bucket[index]);
       map->bucket[index] = node;
-      if (update) *update = true;
-      return true;
+      return 0;
     } else {
       index = (index + 1) % map->cap;
       if (start != index) continue;
-      hashmap_node_free(node);
-      return false;
+      // likely to not reach
+      _hashmap_node_free(node);
+      return -1;
     }
   }
 }
 
-static inline hashmap_node_t* hashmap_at(const hashmap_t* map, const void* key, size_t ksize) {
-  if (hashmap_invalid(map) || map->cap == 0 || map->size == 0) return NULL;
+/** @warning status: [-1: error] [0: unknown] [1: found] */
+static inline hashmap_node_t* hashmap_at(const hashmap_t* map, const void* key, size_t ksize, int* status) {
+  if (status) *status = -1;
+  if (!map || map->cap == 0 || map->size == 0 || !key || ksize == 0) return NULL;
 
-  size_t index = hashmap_hash(key, ksize, map->cap);
+  size_t index = _hashmap_hash(key, ksize, map->cap);
   size_t start = index;
 
   while (true) {
     hashmap_node_t* node = map->bucket[index];
     if (!node) {
+      if (status) *status = 0;
       return NULL;
-    } else if (!node->deleted && node->ksize == ksize &&  memcmp(node->key, key, ksize) == 0) {
+    } else if (!node->deleted && node->ksize == ksize && memcmp(node->key, key, ksize) == 0) {
+      if (status) *status = 1;
       return node;
     } else {
       index = (index + 1) % map->cap;
-      if (start == index) return NULL;
+      if (start == index) {
+        if (status) *status = 0;
+        return NULL;
+      }
     }
   }
 }
 
-static inline bool hashmap_remove(hashmap_t* map, const void* key, size_t ksize) {
-  if (hashmap_invalid(map) || map->cap == 0) return false;
+/** @returns [-1: error] [0: unknown] [1: removed] */
+static inline int hashmap_remove(hashmap_t* map, const void* key, size_t ksize) {
+  if (!map || map->cap == 0) return -1;
 
-  hashmap_node_t* node = hashmap_at(map, key, ksize);
-  if (!node) return false;
+  int status;
+  hashmap_node_t* node = hashmap_at(map, key, ksize, &status);
+  if (!node) return status;
 
   free(node->key);
   free(node->value);
@@ -224,5 +221,5 @@ static inline bool hashmap_remove(hashmap_t* map, const void* key, size_t ksize)
   node->vsize = 0;
   node->deleted = true;
   map->size = map->size - 1;
-  return true;
+  return 1;
 }
