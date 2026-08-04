@@ -101,4 +101,4 @@ int wmain() {
   return 0;
 }
 
-// g++ screenshot.cpp -municode -lgdi32 -lshell32 -lole32 -o screenshot.exe
+// g++ ss.cpp -municode -lgdi32 -lshell32 -lole32 -o ss.exe
