@@ -104,9 +104,21 @@ async function doLink() {
   }
 }
 
-function openVault() {
+function isEmptyTab(url) {
+  return !url ||
+    url === 'about:blank' ||
+    url === 'chrome://newtab/' ||
+    url === 'chrome://new-tab-page/';
+}
+
+async function openVault() {
   const url = chrome.runtime.getURL('view.html');
-  chrome.tabs.create({ url: url });
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (isEmptyTab(tab.url)) {
+    chrome.tabs.update(tab.id, { url });
+  } else {
+    chrome.tabs.create({ url });
+  }
 }
 
 window.addEventListener('load', loadUI);
